@@ -1,0 +1,39 @@
+{
+  "name": "create-ai-stack",
+  "version": "0.1.0",
+  "description": "StackSnap - AI-powered full-stack code generator CLI",
+  "bin": {
+    "stacksnap": "./dist/bin/cli.js",
+    "create-ai-stack": "./dist/bin/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node bin/cli.ts"
+  },
+  "keywords": [
+    "ai",
+    "full-stack",
+    "cli",
+    "code-generator"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@types/chalk": "^2.2.4",
+    "chalk": "^4.1.2",
+    "commander": "^12.1.0",
+    "fs-extra": "^11.2.0",
+    "inquirer": "^9.2.23",
+    "js-yaml": "^4.1.0",
+    "openai": "^4.67.3",
+    "ora": "^5.4.1",
+    "simple-git": "^3.27.0"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/inquirer": "^9.0.7",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.9.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  }
+}

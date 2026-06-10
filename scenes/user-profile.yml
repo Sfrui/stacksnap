@@ -1,0 +1,37 @@
+name: user-profile
+description: User profile page with view and edit functionality
+version: 1.0.0
+stackCompatibility:
+  - nextjs
+  - express-react
+
+dependencies:
+  - package: zod
+    version: "^3.23.8"
+
+entities: []
+
+api:
+  - method: GET
+    path: /api/user/profile
+    description: Get current user's profile data
+  - method: PUT
+    path: /api/user/profile
+    description: Update current user's profile data
+
+frontend:
+  pages:
+    - path: profile
+      description: User profile page showing user info and edit form
+
+  components:
+    - path: profile/ProfileForm
+      description: Form component for editing user name, email, and avatar
+
+  hooks:
+    - path: useProfile
+      description: Hook for fetching and updating the current user's profile
+
+types:
+  - path: user-profile
+    description: UserProfile types (UserProfile, UpdateProfileInput)

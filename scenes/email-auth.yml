@@ -1,0 +1,93 @@
+name: email-auth
+description: Email-based authentication with login, registration, password reset, and session management
+version: 1.0.0
+stackCompatibility:
+  - nextjs
+  - express-react
+
+dependencies:
+  - package: bcryptjs
+    version: "^2.4.3"
+  - package: jsonwebtoken
+    version: "^9.0.2"
+  - package: nodemailer
+    version: "^6.9.15"
+  - package: zod
+    version: "^3.23.8"
+
+entities:
+  - name: User
+    fields:
+      id: String @id @default(uuid())
+      email: String @unique
+      password: String
+      name: String?
+      emailVerified: Boolean @default(false)
+      createdAt: DateTime @default(now())
+      updatedAt: DateTime @updatedAt
+
+  - name: VerificationToken
+    fields:
+      id: String @id @default(uuid())
+      token: String @unique
+      userId: String
+      expires: DateTime
+      createdAt: DateTime @default(now())
+
+api:
+  - method: POST
+    path: /api/auth/register
+    description: Register a new user with email and password
+  - method: POST
+    path: /api/auth/login
+    description: Authenticate user and return JWT token
+  - method: POST
+    path: /api/auth/logout
+    description: Invalidate current session
+  - method: POST
+    path: /api/auth/forgot-password
+    description: Send password reset email with token
+  - method: POST
+    path: /api/auth/reset-password
+    description: Reset password using verification token
+  - method: GET
+    path: /api/auth/verify-email
+    description: Verify email address using token from email
+  - method: GET
+    path: /api/auth/me
+    description: Get current authenticated user profile
+
+frontend:
+  pages:
+    - path: auth/login
+      description: Login page with email and password form
+    - path: auth/register
+      description: Registration page with email, name, and password form
+    - path: auth/forgot-password
+      description: Forgot password page with email input
+    - path: auth/reset-password
+      description: Reset password page with new password input
+    - path: auth/verify-email
+      description: Email verification confirmation page
+
+  components:
+    - path: auth/LoginForm
+      description: Login form component with validation
+    - path: auth/RegisterForm
+      description: Registration form component with validation
+    - path: auth/ForgotPasswordForm
+      description: Forgot password form component
+    - path: auth/ResetPasswordForm
+      description: Reset password form component
+    - path: auth/AuthGuard
+      description: Route protection component that redirects unauthenticated users
+
+  hooks:
+    - path: useAuth
+      description: Hook providing login, logout, register, and current user state
+    - path: useRequireAuth
+      description: Hook that redirects to login if user is not authenticated
+
+types:
+  - path: auth
+    description: Authentication-related types (User, LoginInput, RegisterInput, AuthResponse, ResetPasswordInput)
