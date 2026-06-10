@@ -229,6 +229,80 @@ stacksnap --help                  # Show help
 
 ---
 
+## Step-by-Step Usage Guide
+
+### Step 1 — Install
+
+```bash
+npm install -g create-ai-stack
+```
+
+### Step 2 — Configure AI
+
+StackSnap supports any OpenAI-compatible API. Set environment variables:
+
+```bash
+# OpenAI
+export OPENAI_API_KEY="sk-your-key"
+
+# Custom provider (e.g. mimo, DeepSeek, SiliconFlow)
+export OPENAI_API_KEY="your-key"
+export OPENAI_BASE_URL="https://your-api-endpoint/v1"
+export OPENAI_MODEL="your-model-name"
+```
+
+> On Windows PowerShell: `$env:OPENAI_API_KEY="your-key"`
+
+### Step 3 — Initialize in your project
+
+```bash
+cd your-project
+stacksnap init
+```
+
+This detects your framework, ORM, and package manager, then writes `.stacksnap.json`.
+
+### Step 4 — Add a scene
+
+```bash
+# Interactive — choose from the list
+stacksnap add
+
+# Direct — specify the scene name
+stacksnap add email-auth
+```
+
+What happens automatically:
+
+| Step | Action |
+|------|--------|
+| 1 | Create Git branch `stacksnap/<scene>` |
+| 2 | AI generates code (models, routes, pages) |
+| 3 | Inject files into your project |
+| 4 | Install required dependencies |
+| 5 | Commit changes to Git |
+| - | Auto-rollback if anything fails |
+
+### Step 5 — Review & integrate
+
+After injection, review the generated code and merge the branch:
+
+```bash
+git checkout master
+git merge stacksnap/email-auth
+```
+
+---
+
+## Scene Details
+
+| Scene | Description | Models | API Endpoints | Frontend |
+|-------|-------------|--------|---------------|----------|
+| `email-auth` | Full email authentication system | User, VerificationToken | register, login, logout, forgot-password, reset-password, verify-email | login, register, forgot-password, reset-password, verify-email pages + auth hooks |
+| `user-profile` | User profile management | (reuses User) | GET/PUT /api/user/profile | profile view & edit page + useProfile hook |
+
+---
+
 ## License
 
 MIT
