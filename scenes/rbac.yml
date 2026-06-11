@@ -1,0 +1,101 @@
+name: rbac
+description: Role-based access control with roles, permissions, and admin management
+version: 1.0.0
+stackCompatibility:
+  - nextjs
+  - express-react
+  - express-vue
+
+dependencies:
+  - package: zod
+    version: "^3.23.8"
+
+entities:
+  - name: Role
+    fields:
+      id: String @id @default(uuid())
+      name: String @unique
+      label: String
+      description: String?
+      isSystem: Boolean @default(false)
+      createdAt: DateTime @default(now())
+      updatedAt: DateTime @updatedAt
+
+  - name: Permission
+    fields:
+      id: String @id @default(uuid())
+      code: String @unique
+      module: String
+      action: String
+      description: String?
+      createdAt: DateTime @default(now())
+
+  - name: RolePermission
+    fields:
+      id: String @id @default(uuid())
+      roleId: String
+      permissionId: String
+
+  - name: UserRole
+    fields:
+      id: String @id @default(uuid())
+      userId: String
+      roleId: String
+      createdAt: DateTime @default(now())
+
+api:
+  - method: GET
+    path: /api/admin/roles
+    description: Get role list with pagination
+  - method: POST
+    path: /api/admin/roles
+    description: Create a new role
+  - method: PUT
+    path: /api/admin/roles/:id
+    description: Update role info
+  - method: DELETE
+    path: /api/admin/roles/:id
+    description: Delete a role (system roles cannot be deleted)
+  - method: GET
+    path: /api/admin/roles/:id/permissions
+    description: Get permissions assigned to a role
+  - method: PUT
+    path: /api/admin/roles/:id/permissions
+    description: Update permissions for a role
+  - method: GET
+    path: /api/admin/permissions
+    description: Get all permissions grouped by module
+  - method: GET
+    path: /api/admin/users/:userId/roles
+    description: Get roles assigned to a user
+  - method: PUT
+    path: /api/admin/users/:userId/roles
+    description: Update roles for a user
+  - method: GET
+    path: /api/auth/my-permissions
+    description: Get current user's permissions (merged from all roles)
+
+frontend:
+  pages:
+    - path: admin/roles
+      description: Role management page with role list, create, edit, delete, and permission assignment
+    - path: admin/permissions
+      description: Permission overview page showing all permissions grouped by module
+
+  components:
+    - path: admin/RoleForm
+      description: Dialog form for creating and editing roles
+    - path: admin/PermissionTree
+      description: Tree component for selecting permissions grouped by module with select-all support
+    - path: admin/RoleSelect
+      description: Multi-select component for assigning roles to users
+
+  hooks:
+    - path: usePermissions
+      description: Hook for loading and checking current user's permissions with hasPermission(code) helper
+    - path: useRoles
+      description: Hook for managing role list with CRUD operations
+
+types:
+  - path: rbac
+    description: RBAC types (Role, Permission, RolePermission, UserRole, CreateRoleInput, UpdateRoleInput, AssignPermissionsInput)

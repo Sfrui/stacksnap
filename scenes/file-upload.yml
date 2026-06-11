@@ -1,0 +1,69 @@
+name: file-upload
+description: File upload and management with drag-and-drop, preview, and file list
+version: 1.0.0
+stackCompatibility:
+  - nextjs
+  - express-react
+  - express-vue
+
+dependencies:
+  - package: multer
+    version: "^1.4.5-lts.1"
+  - package: zod
+    version: "^3.23.8"
+
+entities:
+  - name: File
+    fields:
+      id: String @id @default(uuid())
+      originalName: String
+      fileName: String
+      mimeType: String
+      size: Int
+      path: String
+      url: String
+      userId: String?
+      createdAt: DateTime @default(now())
+
+api:
+  - method: POST
+    path: /api/files/upload
+    description: Upload a single file, return file info with URL
+  - method: POST
+    path: /api/files/upload-multiple
+    description: Upload multiple files at once, return array of file info
+  - method: GET
+    path: /api/files
+    description: Get file list with pagination and filters (mimeType, keyword)
+  - method: GET
+    path: /api/files/:id
+    description: Get single file info by ID
+  - method: DELETE
+    path: /api/files/:id
+    description: Delete file (remove from disk and database)
+  - method: GET
+    path: /api/files/download/:id
+    description: Download file by ID with original filename
+
+frontend:
+  pages:
+    - path: files
+      description: File management page with file list grid/table view, upload area, preview, and delete
+
+  components:
+    - path: files/FileUploader
+      description: Drag-and-drop upload component with progress bar, file type restriction, and size limit
+    - path: files/FilePreview
+      description: File preview dialog supporting images, PDF, and text files
+    - path: files/FileSelect
+      description: Reusable component for selecting uploaded files in forms (with thumbnail preview for images)
+
+  hooks:
+    - path: useFileUpload
+      description: Hook wrapping upload API with progress tracking, drag-drop support, and multi-file handling
+    - path: useFileList
+      description: Hook for fetching and managing file list with pagination and filters
+
+types:
+  - path: file-upload
+    description: File types (FileRecord, UploadResponse, FileListQuery, FileListResponse)

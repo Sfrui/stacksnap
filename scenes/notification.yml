@@ -1,0 +1,68 @@
+name: notification
+description: In-app notification system with unread badge, notification list, and mark-as-read
+version: 1.0.0
+stackCompatibility:
+  - nextjs
+  - express-react
+  - express-vue
+
+dependencies:
+  - package: zod
+    version: "^3.23.8"
+
+entities:
+  - name: Notification
+    fields:
+      id: String @id @default(uuid())
+      userId: String
+      type: String
+      title: String
+      content: String?
+      relatedType: String?
+      relatedId: String?
+      isRead: Boolean @default(false)
+      readAt: DateTime?
+      createdAt: DateTime @default(now())
+
+api:
+  - method: GET
+    path: /api/notifications
+    description: Get current user's notifications with pagination, supports isRead filter
+  - method: GET
+    path: /api/notifications/unread-count
+    description: Get unread notification count for current user
+  - method: PUT
+    path: /api/notifications/:id/read
+    description: Mark a single notification as read
+  - method: PUT
+    path: /api/notifications/read-all
+    description: Mark all notifications as read for current user
+  - method: DELETE
+    path: /api/notifications/:id
+    description: Delete a notification
+  - method: DELETE
+    path: /api/notifications/clear-all
+    description: Delete all notifications for current user
+
+frontend:
+  pages:
+    - path: notifications
+      description: Notification list page with tabs (all/unread), mark-as-read, delete, and load-more
+
+  components:
+    - path: notifications/NotificationBell
+      description: Bell icon with unread count badge, shows recent notifications dropdown on click
+    - path: notifications/NotificationItem
+      description: Single notification card with icon, title, content preview, time, and read/unread status
+    - path: notifications/NotificationDropdown
+      description: Dropdown panel showing recent 5 notifications with "view all" link
+
+  hooks:
+    - path: useNotifications
+      description: Hook managing notification list with pagination, unread count polling, mark-as-read, and delete
+    - path: useUnreadCount
+      description: Lightweight hook that polls unread count at interval, returns count and refetch function
+
+types:
+  - path: notification
+    description: Notification types (Notification, NotificationType, NotificationListQuery, UnreadCountResponse)
