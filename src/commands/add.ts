@@ -9,7 +9,49 @@ import { generateSceneCode } from '../core/code-generator';
 import { injectFiles } from '../core/injector/file-injector';
 import { installDependencies } from '../core/injector/dependency-installer';
 import { isGitRepo, setupGitBranch, commitChanges, rollback } from '../utils/git';
-import { ProjectConfig, SceneDefinition } from '../types';
+import { ProjectConfig, SceneDefinition, GeneratedFile } from '../types';
+
+function categorizeFile(filePath: string): string {
+  const p = filePath.replace(/\\/g, '/');
+  if (p.includes('/models/') || p.includes('/models\\')) return 'Backend Models';
+  if (p.includes('/services/') || p.includes('/services\\')) return 'Backend Services';
+  if (p.includes('/routes/') || p.includes('/routes\\')) return 'Backend Routes';
+  if (p.includes('/middleware/') || p.includes('/middleware\\')) return 'Backend Middleware';
+  if (p.includes('/api/') || p.includes('/api\\')) return 'Frontend API';
+  if (p.includes('/views/') || p.includes('/views\\')) return 'Frontend Pages';
+  if (p.includes('/components/') || p.includes('/components\\')) return 'Frontend Components';
+  if (p.includes('/hooks/') || p.includes('/hooks\\')) return 'Frontend Hooks';
+  if (p.includes('/router/') || p.includes('/router\\')) return 'Frontend Router';
+  if (p.includes('/stores/') || p.includes('/stores\\')) return 'Frontend Stores';
+  return 'Other';
+}
+
+function displayGroupedFiles(files: GeneratedFile[]): void {
+  const groups = new Map<string, GeneratedFile[]>();
+  for (const f of files) {
+    const cat = categorizeFile(f.filePath);
+    if (!groups.has(cat)) groups.set(cat, []);
+    groups.get(cat)!.push(f);
+  }
+
+  const categoryOrder = [
+    'Backend Models', 'Backend Services', 'Backend Routes', 'Backend Middleware',
+    'Frontend API', 'Frontend Pages', 'Frontend Components', 'Frontend Hooks',
+    'Frontend Router', 'Frontend Stores', 'Other',
+  ];
+
+  for (const cat of categoryOrder) {
+    const items = groups.get(cat);
+    if (!items) continue;
+    console.log(chalk.bold(`\n  ${cat}:`));
+    for (const f of items) {
+      const tag = f.action === 'create'
+        ? chalk.green.bold('[CREATE]')
+        : chalk.yellow.bold('[MODIFY]');
+      console.log(`    ${tag} ${f.filePath}`);
+    }
+  }
+}
 
 export async function addCommand(preselectedScene?: string): Promise<void> {
   const cwd = process.cwd();
@@ -75,29 +117,23 @@ export async function addCommand(preselectedScene?: string): Promise<void> {
       console.log(chalk.yellow('Not a git repository, skipping branch creation.'));
     }
 
-    // --- Step 4: AI code generation ---
+    // --- Step 4: AI code generation (multi-batch) ---
     const genSpinner = ora('Generating code with AI...').start();
-    const files = await generateSceneCode(scene, config, cwd);
+    const files = await generateSceneCode(scene, config, cwd, (step) => {
+      genSpinner.text = step;
+    });
 
     if (files.length === 0) {
-      genSpinner.info('No new schema models to generate (all entities already exist).');
+      genSpinner.info('No new code to generate (all components already exist).');
+      console.log(chalk.dim('Nothing to inject for this scene.'));
+      return;
     } else {
       genSpinner.succeed(`Generated ${files.length} file(s)`);
     }
 
-    if (files.length === 0) {
-      console.log(chalk.dim('Nothing to inject for this scene.'));
-      return;
-    }
-
     // --- Step 5: Confirmation ---
     console.log(chalk.bold('\nThe following files will be affected:'));
-    for (const f of files) {
-      const tag = f.action === 'create'
-        ? chalk.green.bold('[CREATE]')
-        : chalk.yellow.bold('[MODIFY]');
-      console.log(`  ${tag} ${f.filePath}`);
-    }
+    displayGroupedFiles(files);
 
     const { confirm } = preselectedScene ? { confirm: true } : await inquirer.prompt([
       {

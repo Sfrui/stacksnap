@@ -4,11 +4,15 @@ export interface ProjectConfig {
   typescript: boolean;
   directories: {
     schema?: string;
+    services?: string;
+    middleware?: string;
+    apiRoutes?: string;
     pages?: string;
     components?: string;
-    apiRoutes?: string;
     hooks?: string;
     types?: string;
+    router?: string;
+    stores?: string;
   };
   packageManager: 'npm' | 'yarn' | 'pnpm';
 }

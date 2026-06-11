@@ -19,17 +19,18 @@
 
 ## What is StackSnap?
 
-StackSnap is a CLI tool that **reads predefined full-stack scenes** (authentication, user profiles, etc.) and uses **AI to generate** models, API routes, frontend pages, and hooks — then **safely injects** them into your existing project with automatic Git branching and rollback.
+StackSnap is an AI-powered CLI tool that reads predefined **scene definitions** (YAML files describing full-stack features like authentication or user profiles), uses an **OpenAI-compatible API** to generate backend models, services, API routes, frontend pages, components, hooks, and TypeScript types, then **safely injects** the generated code into your existing project with automatic Git branching and rollback on failure.
 
 ```
 $ stacksnap add email-auth
 
 Using scene: email-auth
 Created branch: stacksnap/email-auth
-- Generating code with AI...
-- Generated 2 file(s)
+- Generating code with AI... (9 batches)
+- Generated 12 file(s)
 - Injecting files...
-  Created: src/models/VerificationToken.js
+  Created: src/models/User.js, src/models/VerificationToken.js, ...
+  Modified: src/routes/index.js, prisma/schema.prisma, ...
 - Installing dependencies...
   bcryptjs, jsonwebtoken, nodemailer, zod
 - Changes committed.
@@ -61,11 +62,13 @@ StackSnap supports any OpenAI-compatible API:
 # OpenAI
 export OPENAI_API_KEY="sk-your-key"
 
-# Custom provider (e.g. mimo, DeepSeek, etc.)
+# Custom provider (e.g. DeepSeek, SiliconFlow, etc.)
 export OPENAI_API_KEY="your-key"
 export OPENAI_BASE_URL="https://your-api-endpoint/v1"
 export OPENAI_MODEL="your-model-name"
 ```
+
+> On Windows PowerShell: `$env:OPENAI_API_KEY="your-key"`
 
 ### Initialize & Add
 
@@ -73,8 +76,11 @@ export OPENAI_MODEL="your-model-name"
 # Detect project config (framework, ORM, package manager)
 stacksnap init
 
-# Add a full-stack scene
-stacksnap add <scene-name>
+# Add a full-stack scene (interactive selection)
+stacksnap add
+
+# Add a specific scene directly
+stacksnap add email-auth
 ```
 
 ---
@@ -82,26 +88,58 @@ stacksnap add <scene-name>
 ## How It Works
 
 ```
-stacksnap init          stacksnap add email-auth
-     |                        |
-     v                        v
- Detect project          Load scene YAML
- framework, ORM,             |
- directories                  v
-     |                  AI generates code
-     v                  (models, routes, pages)
- .stacksnap.json              |
-                              v
-                        Git branch created
-                        (stacksnap/email-auth)
-                              |
-                              v
-                        Files injected
-                        Dependencies installed
-                        Changes committed
-                              |
-                        (auto-rollback on failure)
+stacksnap init                stacksnap add email-auth
+     |                              |
+     v                              v
+ Detect project                Load scene YAML
+ framework, ORM,                    |
+ package manager                    v
+     |                        Create Git branch
+     v                        stacksnap/email-auth
+ .stacksnap.json                    |
+                                    v
+                              AI generates code in 9 batches
+                              (models, index, services, routes,
+                               API modules, pages, hooks,
+                               components, router registration)
+                                    |
+                                    v
+                              User confirms file list
+                                    |
+                                    v
+                              Smart file injection
+                              (new files, deduplication, merge)
+                                    |
+                                    v
+                              Install dependencies
+                              Git commit
+                                    |
+                              (auto-rollback on failure)
 ```
+
+---
+
+## AI Code Generation Pipeline
+
+When you run `stacksnap add`, StackSnap executes a **9-batch sequential generation pipeline**:
+
+| Batch | Output | Description |
+|-------|--------|-------------|
+| 1 | Backend Models | Prisma schema models or Sequelize model files |
+| 2 | Model Index | Sequelize model index registration (skipped for Prisma) |
+| 3 | Backend Services | Service layer with business logic functions |
+| 4 | Backend Routes | API route handlers + route registration |
+| 5 | Frontend API | Frontend API request modules |
+| 6 | Frontend Pages | Vue 3 SFCs / React components |
+| 7 | Frontend Hooks | Composables / custom hooks |
+| 8 | Frontend Components | UI components |
+| 9 | Router Registration | Frontend route configuration |
+
+Each batch uses AI prompts that include:
+- Role-specific instructions (e.g. "You are a Prisma schema expert")
+- Reference files from your project (for code style matching)
+- Previously generated code from earlier batches (for consistency)
+- Existing StackSnap code (to avoid duplicates across multiple scene additions)
 
 ---
 
@@ -113,24 +151,30 @@ stacksnap init          stacksnap add email-auth
 
 ### email-auth
 
-Email-based authentication system with:
+Full email-based authentication system:
 
-- **Models:** User, VerificationToken
-- **API:** register, login, logout, forgot-password, reset-password, verify-email
+- **Dependencies:** bcryptjs, jsonwebtoken, nodemailer, zod
+- **Models:** User (email, password, name, emailVerified), VerificationToken
+- **API:** register, login, logout, forgot-password, reset-password, verify-email, me
 - **Pages:** login, register, forgot-password, reset-password, verify-email
+- **Components:** LoginForm, RegisterForm, ForgotPasswordForm, ResetPasswordForm, AuthGuard
 - **Hooks:** useAuth, useRequireAuth
+- **Types:** auth (User, LoginInput, RegisterInput, AuthResponse, ResetPasswordInput)
 
 </td>
 <td width="50%">
 
 ### user-profile
 
-User profile management with:
+User profile management:
 
+- **Dependencies:** zod
 - **Models:** reuses existing User
 - **API:** GET/PUT /api/user/profile
 - **Pages:** profile view & edit
+- **Components:** ProfileForm
 - **Hooks:** useProfile
+- **Types:** user-profile (UserProfile, UpdateProfileInput)
 
 </td>
 </tr>
@@ -142,9 +186,22 @@ User profile management with:
 
 | Framework | ORM | Package Manager |
 |-----------|-----|-----------------|
-| Next.js | Prisma | pnpm |
+| Next.js | Prisma | npm |
 | Express + React | Drizzle | yarn |
-| Express + Vue | Sequelize | npm |
+| Express + Vue | Sequelize | pnpm |
+
+---
+
+## Smart Injection
+
+StackSnap doesn't just create files — it intelligently merges into your existing codebase:
+
+- **New files**: Created with proper directory structure
+- **Prisma schemas**: Model blocks injected at the correct position
+- **Index files**: Smart insertion after last require, before module.exports
+- **Service files**: Deduplication by function name, only appends unique functions
+- **Route files**: Deduplication by HTTP method + path
+- **Marker-based**: All modifications use `@stacksnap added` / `@stacksnap end` markers for traceability
 
 ---
 
@@ -152,24 +209,31 @@ User profile management with:
 
 ```
 stacksnap/
-├── bin/cli.ts                    # CLI entry (commander)
+├── bin/
+│   └── cli.ts                    # CLI entry point (commander)
 ├── src/
 │   ├── commands/
-│   │   ├── init.ts               # Project detection & config
-│   │   └── add.ts                # Scene injection flow
+│   │   ├── init.ts               # Project detection & config generation
+│   │   └── add.ts                # Main scene injection workflow
 │   ├── core/
-│   │   ├── detector.ts           # Framework/ORM detection
-│   │   ├── scene-loader.ts       # YAML scene loading
-│   │   ├── prompt-factory.ts     # AI prompt construction
-│   │   ├── code-generator.ts     # OpenAI-compatible API calls
+│   │   ├── detector.ts           # Framework/ORM/package-manager detection
+│   │   ├── scene-loader.ts       # YAML scene file loading & caching
+│   │   ├── prompt-factory.ts     # AI prompt construction per batch
+│   │   ├── code-generator.ts     # AI API calls & multi-file output parsing
 │   │   └── injector/
-│   │       ├── file-injector.ts  # File create/modify
-│   │       └── dependency-installer.ts
-│   ├── types/index.ts
-│   └── utils/git.ts              # Git branch/commit/rollback
-└── scenes/
-    ├── email-auth.yml
-    └── user-profile.yml
+│   │       ├── file-injector.ts  # Smart file create/modify with deduplication
+│   │       ├── schema-injector.ts # Prisma schema model injection
+│   │       └── dependency-installer.ts # npm/yarn/pnpm dependency installation
+│   ├── types/
+│   │   └── index.ts              # TypeScript interfaces for all core types
+│   └── utils/
+│       └── git.ts                # Git branch/commit/rollback operations
+├── scenes/
+│   ├── email-auth.yml            # Email authentication scene definition
+│   └── user-profile.yml          # User profile scene definition
+├── package.json
+├── tsconfig.json
+└── .gitignore
 ```
 
 ---
@@ -213,6 +277,10 @@ frontend:
   hooks:
     - path: useMyHook
       description: My hook
+
+types:
+  - path: my-feature
+    description: MyModel types (MyModel, CreateMyModelInput)
 ```
 
 ---
@@ -220,9 +288,9 @@ frontend:
 ## CLI Reference
 
 ```bash
-stacksnap init                    # Initialize project config
+stacksnap init                    # Initialize project config (.stacksnap.json)
 stacksnap add                     # Interactive scene selection
-stacksnap add email-auth          # Add specific scene directly
+stacksnap add <scene-name>        # Add specific scene directly
 stacksnap --version               # Show version
 stacksnap --help                  # Show help
 ```
@@ -245,7 +313,7 @@ StackSnap supports any OpenAI-compatible API. Set environment variables:
 # OpenAI
 export OPENAI_API_KEY="sk-your-key"
 
-# Custom provider (e.g. mimo, DeepSeek, SiliconFlow)
+# Custom provider (e.g. DeepSeek, SiliconFlow)
 export OPENAI_API_KEY="your-key"
 export OPENAI_BASE_URL="https://your-api-endpoint/v1"
 export OPENAI_MODEL="your-model-name"
@@ -260,7 +328,7 @@ cd your-project
 stacksnap init
 ```
 
-This detects your framework, ORM, and package manager, then writes `.stacksnap.json`.
+This detects your framework, ORM, TypeScript usage, directory structure, and package manager, then writes `.stacksnap.json`.
 
 ### Step 4 — Add a scene
 
@@ -277,11 +345,12 @@ What happens automatically:
 | Step | Action |
 |------|--------|
 | 1 | Create Git branch `stacksnap/<scene>` |
-| 2 | AI generates code (models, routes, pages) |
-| 3 | Inject files into your project |
-| 4 | Install required dependencies |
-| 5 | Commit changes to Git |
-| - | Auto-rollback if anything fails |
+| 2 | AI generates code in 9 batches (models, services, routes, pages, hooks, components, types) |
+| 3 | Show generated file list for confirmation |
+| 4 | Inject files with smart merging and deduplication |
+| 5 | Install required npm dependencies |
+| 6 | Commit changes to Git |
+| - | Auto-rollback if anything fails (branch deleted, switch back) |
 
 ### Step 5 — Review & integrate
 
@@ -294,12 +363,28 @@ git merge stacksnap/email-auth
 
 ---
 
-## Scene Details
+## Environment Variables
 
-| Scene | Description | Models | API Endpoints | Frontend |
-|-------|-------------|--------|---------------|----------|
-| `email-auth` | Full email authentication system | User, VerificationToken | register, login, logout, forgot-password, reset-password, verify-email | login, register, forgot-password, reset-password, verify-email pages + auth hooks |
-| `user-profile` | User profile management | (reuses User) | GET/PUT /api/user/profile | profile view & edit page + useProfile hook |
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `OPENAI_API_KEY` | Yes | — | API key for the AI provider |
+| `OPENAI_BASE_URL` | No | `https://api.openai.com/v1` | Custom API endpoint |
+| `OPENAI_MODEL` | No | `gpt-4o-mini` | AI model to use |
+
+---
+
+## Tech Stack
+
+| Category | Technology |
+|----------|------------|
+| Language | TypeScript 5.6 (strict mode, ES2020, CommonJS) |
+| CLI Framework | commander 12.x |
+| Interactive Prompts | inquirer 9.x |
+| Terminal Styling | chalk 4.x, ora 5.x |
+| AI Integration | openai 4.x SDK (OpenAI-compatible) |
+| YAML Parsing | js-yaml 4.x |
+| File Operations | fs-extra 11.x |
+| Git Operations | simple-git 3.x |
 
 ---
 

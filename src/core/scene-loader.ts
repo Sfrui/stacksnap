@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { SceneDefinition } from '../types';
 
-const SCENES_DIR = path.resolve(__dirname, '../../scenes');
+const SCENES_DIR = path.resolve(__dirname, '../../../scenes');
 
 let sceneCache: SceneDefinition[] | null = null;
 
