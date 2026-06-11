@@ -178,6 +178,60 @@ User profile management:
 
 </td>
 </tr>
+<tr>
+<td width="50%">
+
+### rbac
+
+Role-based access control:
+
+- **Dependencies:** zod
+- **Models:** Role, Permission, RolePermission, UserRole
+- **API:** role CRUD, permission assignment, user-role management, permission query
+- **Pages:** role management, permission overview
+- **Components:** RoleForm, PermissionTree, RoleSelect
+- **Hooks:** usePermissions, useRoles
+- **Types:** rbac (Role, Permission, CreateRoleInput, AssignPermissionsInput)
+
+</td>
+<td width="50%">
+
+### file-upload
+
+File upload and management:
+
+- **Dependencies:** multer, zod
+- **Models:** File (name, type, size, path, url)
+- **API:** upload, multi-upload, file list, detail, delete, download
+- **Pages:** file management (grid/table view)
+- **Components:** FileUploader, FilePreview, FileSelect
+- **Hooks:** useFileUpload, useFileList
+- **Types:** file-upload (FileRecord, UploadResponse, FileListQuery)
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### notification
+
+In-app notification system:
+
+- **Dependencies:** zod
+- **Models:** Notification (type, title, content, isRead)
+- **API:** notification list, unread count, mark read, mark all read, delete, clear all
+- **Pages:** notification list (all/unread tabs)
+- **Components:** NotificationBell, NotificationItem, NotificationDropdown
+- **Hooks:** useNotifications, useUnreadCount
+- **Types:** notification (Notification, NotificationListQuery, UnreadCountResponse)
+
+</td>
+<td width="50%">
+
+*More scenes coming soon...*
+
+</td>
+</tr>
 </table>
 
 ---
@@ -229,8 +283,11 @@ stacksnap/
 │   └── utils/
 │       └── git.ts                # Git branch/commit/rollback operations
 ├── scenes/
-│   ├── email-auth.yml            # Email authentication scene definition
-│   └── user-profile.yml          # User profile scene definition
+│   ├── email-auth.yml            # Email authentication
+│   ├── user-profile.yml          # User profile management
+│   ├── rbac.yml                  # Role-based access control
+│   ├── file-upload.yml           # File upload and management
+│   └── notification.yml          # In-app notification system
 ├── package.json
 ├── tsconfig.json
 └── .gitignore
