@@ -1,17 +1,24 @@
 <div align="center">
 
-<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=30&pause=1000&color=00E0FF&center=true&vCenter=true&multiline=true&repeat=true&width=600&height=80&lines=StackSnap+%F0%9F%92%BB;AI-Powered+Full-Stack+Code+Generator" alt="Typing SVG" />
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=38&pause=1000&color=00E0FF&center=true&vCenter=true&multiline=true&repeat=true&width=700&height=100&lines=%F0%9F%92%BB+StackSnap;AI-Powered+Full-Stack+Code+Generator" alt="Typing SVG" />
 
 <br/>
 
-<p><strong>One command. Full-stack features. AI-generated and injected into your project.</strong></p>
+<img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=400&size=16&pause=800&color=A0A0A0&center=true&vCenter=true&width=600&height=40&lines=One+command.+Full-stack+features.+AI-generated+and+injected+into+your+project." alt="Sub typing" />
+
+<br/><br/>
+
+[![npm version](https://img.shields.io/npm/v/create-ai-stack?color=00E0FF&style=for-the-badge&logo=npm&logoColor=white)](https://www.npmjs.com/package/create-ai-stack)
+[![License: MIT](https://img.shields.io/badge/License-MIT-00E0FF?style=for-the-badge&logo=opensource&logoColor=white)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Tests](https://img.shields.io/badge/Tests-145%20passed-brightgreen?style=for-the-badge&logo=vitest&logoColor=white)]()
+[![GitHub stars](https://img.shields.io/github/stars/Sfrui/stacksnap?style=for-the-badge&logo=github&color=yellow)](https://github.com/Sfrui/stacksnap/stargazers)
+[![GitHub last commit](https://img.shields.io/github/last-commit/Sfrui/stacksnap?style=for-the-badge&color=orange)](https://github.com/Sfrui/stacksnap/commits)
 
 <br/>
 
-[![npm version](https://img.shields.io/npm/v/create-ai-stack?color=00E0FF&style=flat-square&logo=npm)](https://www.npmjs.com/package/create-ai-stack)
-[![License: MIT](https://img.shields.io/badge/License-MIT-00E0FF?style=flat-square)](https://opensource.org/licenses/MIT)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-007ACC?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+<img src="https://skillicons.dev/icons?i=ts,nodejs,react,vue,nextjs,prisma&perline=6" height="48" alt="Tech stack icons" />
 
 </div>
 
@@ -21,16 +28,36 @@
 
 StackSnap is an AI-powered CLI tool that reads predefined **scene definitions** (YAML files describing full-stack features like authentication or user profiles), uses an **OpenAI-compatible API** to generate backend models, services, API routes, frontend pages, components, hooks, and TypeScript types, then **safely injects** the generated code into your existing project with automatic Git branching and rollback on failure.
 
+<div align="center">
+
+```mermaid
+graph LR
+    A["stacksnap add<br/>email-auth"] --> B["Read YAML<br/>Scene"]
+    B --> C["Create Git<br/>Branch"]
+    C --> D["AI Generates<br/>10 Batches"]
+    D --> E["Smart Inject<br/>& Dedup"]
+    E --> F["Install Deps<br/>& Commit"]
+    F --> G["Done!"]
+    D -.->|on failure| H["Auto<br/>Rollback"]
+    H -.-> C
+
+    style A fill:#00E0FF,stroke:#00B8D4,color:#000
+    style G fill:#4CAF50,stroke:#388E3C,color:#fff
+    style H fill:#FF5252,stroke:#D32F2F,color:#fff
 ```
+
+</div>
+
+```bash
 $ stacksnap add email-auth
 
 Using scene: email-auth
 Created branch: stacksnap/email-auth
-- Generating code with AI... (9 batches)
+- Generating code with AI... (10 batches)
 - Generated 12 file(s)
 - Injecting files...
-  Created: src/models/User.js, src/models/VerificationToken.js, ...
-  Modified: src/routes/index.js, prisma/schema.prisma, ...
+  Created: src/services/authService.js, src/routes/auth.js, ...
+  Modified: prisma/schema.prisma, src/routes/index.js, ...
 - Installing dependencies...
   bcryptjs, jsonwebtoken, nodemailer, zod
 - Changes committed.
@@ -92,15 +119,16 @@ stacksnap init                stacksnap add email-auth
      |                              |
      v                              v
  Detect project                Load scene YAML
- framework, ORM,                    |
- package manager                    v
-     |                        Create Git branch
-     v                        stacksnap/email-auth
- .stacksnap.json                    |
+ framework, ORM,               + check dependencies
+ package manager                    |
+     |                              v
+     v                        Create Git branch
+ .stacksnap.json               stacksnap/email-auth
+                                    |
                                     v
-                              AI generates code in 9 batches
+                              AI generates code in 10 batches
                               (models, index, services, routes,
-                               API modules, pages, hooks,
+                               API modules, types, pages, hooks,
                                components, router registration)
                                     |
                                     v
@@ -121,19 +149,20 @@ stacksnap init                stacksnap add email-auth
 
 ## AI Code Generation Pipeline
 
-When you run `stacksnap add`, StackSnap executes a **9-batch sequential generation pipeline**:
+When you run `stacksnap add`, StackSnap executes a **10-batch sequential generation pipeline**:
 
 | Batch | Output | Description |
-|-------|--------|-------------|
-| 1 | Backend Models | Prisma schema models or Sequelize model files |
-| 2 | Model Index | Sequelize model index registration (skipped for Prisma) |
+|:-----:|--------|-------------|
+| 1 | Backend Models | Prisma schema models, Sequelize model files, or Drizzle table definitions |
+| 2 | Model Index | Multi-file ORM index registration (Sequelize/Drizzle, skipped for Prisma) |
 | 3 | Backend Services | Service layer with business logic functions |
-| 4 | Backend Routes | API route handlers + route registration |
-| 5 | Frontend API | Frontend API request modules |
-| 6 | Frontend Pages | Vue 3 SFCs / React components |
-| 7 | Frontend Hooks | Composables / custom hooks |
-| 8 | Frontend Components | UI components |
-| 9 | Router Registration | Frontend route configuration |
+| 4 | Backend Routes | API route handlers + route registration block |
+| 5 | Frontend API | Frontend API request modules (skipped for Next.js) |
+| 6 | Type Definitions | TypeScript interfaces and types |
+| 7 | Frontend Pages | Vue 3 SFCs / React components / Next.js pages |
+| 8 | Frontend Hooks | Composables / custom hooks |
+| 9 | Frontend Components | Reusable UI components |
+| 10 | Router Registration | Frontend route configuration (skipped for Next.js) |
 
 Each batch uses AI prompts that include:
 - Role-specific instructions (e.g. "You are a Prisma schema expert")
@@ -154,8 +183,8 @@ Each batch uses AI prompts that include:
 Full email-based authentication system:
 
 - **Dependencies:** bcryptjs, jsonwebtoken, nodemailer, zod
-- **Models:** User (email, password, name, emailVerified), VerificationToken
-- **API:** register, login, logout, forgot-password, reset-password, verify-email, me
+- **Models:** User (email, password, name, avatar, emailVerified), VerificationToken (purpose-aware)
+- **API:** register, login, logout, forgot-password, reset-password, verify-email, me, change-password, refresh-token
 - **Pages:** login, register, forgot-password, reset-password, verify-email
 - **Components:** LoginForm, RegisterForm, ForgotPasswordForm, ResetPasswordForm, AuthGuard
 - **Hooks:** useAuth, useRequireAuth
@@ -169,12 +198,13 @@ Full email-based authentication system:
 User profile management:
 
 - **Dependencies:** zod
-- **Models:** reuses existing User
+- **Models:** reuses existing User (from email-auth)
 - **API:** GET/PUT /api/user/profile
 - **Pages:** profile view & edit
 - **Components:** ProfileForm
 - **Hooks:** useProfile
 - **Types:** user-profile (UserProfile, UpdateProfileInput)
+- **Requires:** `email-auth` scene
 
 </td>
 </tr>
@@ -186,12 +216,13 @@ User profile management:
 Role-based access control:
 
 - **Dependencies:** zod
-- **Models:** Role, Permission, RolePermission, UserRole
+- **Models:** Role, Permission, RolePermission (with unique constraint), UserRole (with unique constraint)
 - **API:** role CRUD, permission assignment, user-role management, permission query
 - **Pages:** role management, permission overview
 - **Components:** RoleForm, PermissionTree, RoleSelect
 - **Hooks:** usePermissions, useRoles
 - **Types:** rbac (Role, Permission, CreateRoleInput, AssignPermissionsInput)
+- **Requires:** `email-auth` scene
 
 </td>
 <td width="50%">
@@ -201,12 +232,13 @@ Role-based access control:
 File upload and management:
 
 - **Dependencies:** multer, zod
-- **Models:** File (name, type, size, path, url)
+- **Models:** FileRecord (name, type, size, path, url)
 - **API:** upload, multi-upload, file list, detail, delete, download
 - **Pages:** file management (grid/table view)
 - **Components:** FileUploader, FilePreview, FileSelect
 - **Hooks:** useFileUpload, useFileList
 - **Types:** file-upload (FileRecord, UploadResponse, FileListQuery)
+- **Note:** Express only (Next.js uses native Request.formData())
 
 </td>
 </tr>
@@ -218,21 +250,40 @@ File upload and management:
 In-app notification system:
 
 - **Dependencies:** zod
-- **Models:** Notification (type, title, content, isRead)
-- **API:** notification list, unread count, mark read, mark all read, delete, clear all
+- **Models:** Notification (type, title, content, link, isRead)
+- **API:** notification list, unread count, mark read, mark all read, delete, delete all
 - **Pages:** notification list (all/unread tabs)
 - **Components:** NotificationBell, NotificationItem, NotificationDropdown
 - **Hooks:** useNotifications, useUnreadCount
-- **Types:** notification (Notification, NotificationListQuery, UnreadCountResponse)
+- **Types:** notification (Notification, NotificationType, NotificationListQuery, UnreadCountResponse)
+- **Requires:** `email-auth` scene
 
 </td>
 <td width="50%">
 
 *More scenes coming soon...*
 
+Have an idea? [Open an issue](https://github.com/Sfrui/stacksnap/issues) or submit a PR!
+
 </td>
 </tr>
 </table>
+
+### Scene Dependency Graph
+
+```mermaid
+graph TD
+    EA[email-auth] --> UP[user-profile]
+    EA --> RBAC[rbac]
+    EA --> NOTIF[notification]
+    FU[file-upload]
+
+    style EA fill:#00E0FF,stroke:#00B8D4,color:#000
+    style UP fill:#7C4DFF,stroke:#651FFF,color:#fff
+    style RBAC fill:#FF6D00,stroke:#E65100,color:#fff
+    style NOTIF fill:#00C853,stroke:#00A844,color:#fff
+    style FU fill:#FF4081,stroke:#F50057,color:#fff
+```
 
 ---
 
@@ -240,9 +291,13 @@ In-app notification system:
 
 | Framework | ORM | Package Manager |
 |-----------|-----|-----------------|
-| Next.js | Prisma | npm |
-| Express + React | Drizzle | yarn |
-| Express + Vue | Sequelize | pnpm |
+| Next.js (App Router) | Prisma | npm |
+| Express + React (Ant Design) | Drizzle | yarn |
+| Express + Vue 3 (Element Plus) | Sequelize | pnpm |
+
+<div align="center">
+<img src="https://skillicons.dev/icons?i=express,react,vue,nextjs,prisma&perline=5" height="40" alt="Supported stack icons" />
+</div>
 
 ---
 
@@ -250,12 +305,17 @@ In-app notification system:
 
 StackSnap doesn't just create files — it intelligently merges into your existing codebase:
 
-- **New files**: Created with proper directory structure
-- **Prisma schemas**: Model blocks injected at the correct position
-- **Index files**: Smart insertion after last require, before module.exports
-- **Service files**: Deduplication by function name, only appends unique functions
-- **Route files**: Deduplication by HTTP method + path
-- **Marker-based**: All modifications use `@stacksnap added` / `@stacksnap end` markers for traceability
+| File Type | Strategy |
+|-----------|----------|
+| New files | Created with proper directory structure |
+| Prisma schemas | Model blocks injected after last `}`, wrapped in markers |
+| Route index | Inserted after last `router.use()`, before `module.exports` |
+| Model index | Inserted after last `require()`, before `module.exports` |
+| Router index | Inserted after last `path:` entry, before closing `]` |
+| Service files | **Deduplication** by function name, only appends unique functions |
+| Route files | **Deduplication** by HTTP method + path |
+
+All modifications use `@stacksnap added` / `@stacksnap end` markers for traceability and multi-scene awareness.
 
 ---
 
@@ -264,33 +324,48 @@ StackSnap doesn't just create files — it intelligently merges into your existi
 ```
 stacksnap/
 ├── bin/
-│   └── cli.ts                    # CLI entry point (commander)
+│   └── cli.ts                        # CLI entry point (commander)
 ├── src/
 │   ├── commands/
-│   │   ├── init.ts               # Project detection & config generation
-│   │   └── add.ts                # Main scene injection workflow
+│   │   ├── init.ts                   # Project detection & config generation
+│   │   └── add.ts                    # Main scene injection workflow
 │   ├── core/
-│   │   ├── detector.ts           # Framework/ORM/package-manager detection
-│   │   ├── scene-loader.ts       # YAML scene file loading & caching
-│   │   ├── prompt-factory.ts     # AI prompt construction per batch
-│   │   ├── code-generator.ts     # AI API calls & multi-file output parsing
+│   │   ├── detector.ts               # Framework/ORM/PM auto-detection
+│   │   ├── scene-loader.ts           # YAML scene file loading & caching
+│   │   ├── code-generator.ts         # AI API calls & multi-file output parsing
 │   │   └── injector/
-│   │       ├── file-injector.ts  # Smart file create/modify with deduplication
-│   │       ├── schema-injector.ts # Prisma schema model injection
+│   │       ├── file-injector.ts      # Smart file create/modify with deduplication
+│   │       ├── schema-injector.ts    # Prisma schema model injection
 │   │       └── dependency-installer.ts # npm/yarn/pnpm dependency installation
+│   ├── adapters/                     # Framework-specific adapters
+│   │   ├── types.ts                  # Adapter interface definitions
+│   │   ├── registry.ts               # Adapter registry & lazy initialization
+│   │   ├── locale.ts                 # i18n configuration (en-US default)
+│   │   ├── utils.ts                  # Shared naming utilities
+│   │   └── implementations/
+│   │       ├── shared/
+│   │       │   ├── backend.express.ts    # Shared Express prompt builders
+│   │       │   └── express-backend.ts    # Shared ExpressBackend class
+│   │       ├── express-vue/          # Express + Vue 3 adapter
+│   │       ├── express-react/        # Express + React adapter
+│   │       └── nextjs/               # Next.js App Router adapter
 │   ├── types/
-│   │   └── index.ts              # TypeScript interfaces for all core types
-│   └── utils/
-│       └── git.ts                # Git branch/commit/rollback operations
-├── scenes/
-│   ├── email-auth.yml            # Email authentication
-│   ├── user-profile.yml          # User profile management
-│   ├── rbac.yml                  # Role-based access control
-│   ├── file-upload.yml           # File upload and management
-│   └── notification.yml          # In-app notification system
+│   │   └── index.ts                  # TypeScript interfaces
+│   ├── utils/
+│   │   └── git.ts                    # Git branch/commit/rollback operations
+│   └── __tests__/                    # Test suite (145 tests)
+│       ├── adapters/
+│       ├── injector/
+│       └── utils/
+├── scenes/                           # Scene definitions (YAML)
+│   ├── email-auth.yml
+│   ├── user-profile.yml
+│   ├── rbac.yml
+│   ├── file-upload.yml
+│   └── notification.yml
 ├── package.json
 ├── tsconfig.json
-└── .gitignore
+└── vitest.config.ts
 ```
 
 ---
@@ -307,6 +382,10 @@ stackCompatibility:
   - nextjs
   - express-react
   - express-vue
+
+# Optional: declare scene dependencies
+dependsOn:
+  - email-auth
 
 dependencies:
   - package: some-package
@@ -364,8 +443,6 @@ npm install -g create-ai-stack
 
 ### Step 2 — Configure AI
 
-StackSnap supports any OpenAI-compatible API. Set environment variables:
-
 ```bash
 # OpenAI
 export OPENAI_API_KEY="sk-your-key"
@@ -375,8 +452,6 @@ export OPENAI_API_KEY="your-key"
 export OPENAI_BASE_URL="https://your-api-endpoint/v1"
 export OPENAI_MODEL="your-model-name"
 ```
-
-> On Windows PowerShell: `$env:OPENAI_API_KEY="your-key"`
 
 ### Step 3 — Initialize in your project
 
@@ -400,18 +475,17 @@ stacksnap add email-auth
 What happens automatically:
 
 | Step | Action |
-|------|--------|
+|:----:|--------|
 | 1 | Create Git branch `stacksnap/<scene>` |
-| 2 | AI generates code in 9 batches (models, services, routes, pages, hooks, components, types) |
-| 3 | Show generated file list for confirmation |
-| 4 | Inject files with smart merging and deduplication |
-| 5 | Install required npm dependencies |
-| 6 | Commit changes to Git |
-| - | Auto-rollback if anything fails (branch deleted, switch back) |
+| 2 | Check scene dependencies (warns if missing) |
+| 3 | AI generates code in 10 batches |
+| 4 | Show generated file list for confirmation |
+| 5 | Inject files with smart merging and deduplication |
+| 6 | Install required npm dependencies |
+| 7 | Commit changes to Git |
+| - | **Auto-rollback** if anything fails |
 
 ### Step 5 — Review & integrate
-
-After injection, review the generated code and merge the branch:
 
 ```bash
 git checkout master
@@ -423,7 +497,7 @@ git merge stacksnap/email-auth
 ## Environment Variables
 
 | Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
+|----------|:--------:|---------|-------------|
 | `OPENAI_API_KEY` | Yes | — | API key for the AI provider |
 | `OPENAI_BASE_URL` | No | `https://api.openai.com/v1` | Custom API endpoint |
 | `OPENAI_MODEL` | No | `gpt-4o-mini` | AI model to use |
@@ -442,6 +516,20 @@ git merge stacksnap/email-auth
 | YAML Parsing | js-yaml 4.x |
 | File Operations | fs-extra 11.x |
 | Git Operations | simple-git 3.x |
+| Testing | Vitest 4.x (145 tests) |
+
+---
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Run tests (`npm test`)
+4. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+5. Push to the branch (`git push origin feature/amazing-feature`)
+6. Open a Pull Request
 
 ---
 
@@ -453,6 +541,10 @@ MIT
 
 <div align="center">
 
-**[Back to Top](#stacksnap)** &nbsp; | &nbsp; Built with AI, by [Sfrui](https://github.com/Sfrui)
+**[Back to Top](#-stacksnap)** &nbsp; | &nbsp; Built with AI, by [Sfrui](https://github.com/Sfrui)
+
+<br/><br/>
+
+<img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=400&size=13&pause=500&color=666&center=true&vCenter=true&width=400&height=30&lines=Stars+are+always+welcome+%E2%AD%90" alt="Footer typing" />
 
 </div>
