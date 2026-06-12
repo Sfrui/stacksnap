@@ -2,83 +2,98 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ProjectConfig } from '../types';
 
-function detectPackageManager(cwd: string): ProjectConfig['packageManager'] {
+export function detectPackageManager(cwd: string): ProjectConfig['packageManager'] {
   if (fs.existsSync(path.join(cwd, 'pnpm-lock.yaml'))) return 'pnpm';
   if (fs.existsSync(path.join(cwd, 'yarn.lock'))) return 'yarn';
   return 'npm';
 }
 
-function detectFramework(deps: Record<string, string>): ProjectConfig['framework'] {
+export function detectFramework(deps: Record<string, string>): ProjectConfig['framework'] {
   if (deps['next']) return 'nextjs';
   if (deps['express'] && deps['vue']) return 'express-vue';
   if (deps['express'] && deps['react']) return 'express-react';
   return 'unknown';
 }
 
-function detectOrm(deps: Record<string, string>): ProjectConfig['orm'] {
+export function detectOrm(deps: Record<string, string>): ProjectConfig['orm'] {
   if (deps['@prisma/client'] || deps['prisma']) return 'prisma';
   if (deps['drizzle-orm']) return 'drizzle';
   if (deps['sequelize']) return 'sequelize';
   return 'none';
 }
 
+export function detectUiLibrary(deps: Record<string, string>): string | undefined {
+  if (deps['element-plus']) return 'element-plus';
+  if (deps['antd'] || deps['@ant-design/pro-components']) return 'ant-design';
+  if (deps['@mui/material']) return 'mui';
+  if (deps['@chakra-ui/react']) return 'chakra-ui';
+  return undefined;
+}
+
+interface DirectorySearchRule {
+  candidates: string[];
+}
+
+function findFirstExistingDir(cwd: string, candidates: string[]): string | undefined {
+  for (const c of candidates) {
+    const abs = path.join(cwd, c);
+    if (fs.existsSync(abs) && fs.statSync(abs).isDirectory() && fs.readdirSync(abs).length > 0) {
+      return c;
+    }
+  }
+  // Return the first candidate as default even if empty
+  return candidates[0];
+}
+
+function getDirectorySearchRules(framework: ProjectConfig['framework'], cwd: string): Record<string, DirectorySearchRule> {
+  switch (framework) {
+    case 'express-vue':
+    case 'express-react':
+      return {
+        schema:       { candidates: ['backend/src/models', 'server/src/models', 'api/src/models', 'src/models'] },
+        services:     { candidates: ['backend/src/services', 'server/src/services', 'api/src/services', 'src/services'] },
+        middleware:   { candidates: ['backend/src/middleware', 'server/src/middleware', 'api/src/middleware', 'src/middleware'] },
+        apiRoutes:    { candidates: ['backend/src/routes', 'server/src/routes', 'api/src/routes', 'src/routes'] },
+        pages:        { candidates: ['frontend/src/views', 'client/src/views', 'frontend/src/pages', 'client/src/pages', 'src/views', 'src/pages'] },
+        components:   { candidates: ['frontend/src/components', 'client/src/components', 'src/components'] },
+        hooks:        { candidates: ['frontend/src/hooks', 'client/src/hooks', 'src/hooks'] },
+        types:        { candidates: ['frontend/src/types', 'client/src/types', 'backend/src/types', 'src/types'] },
+        router:       { candidates: ['frontend/src/router', 'client/src/router', 'src/router'] },
+        stores:       { candidates: ['frontend/src/stores', 'client/src/stores', 'src/stores'] },
+      };
+
+    case 'nextjs': {
+      const has = (p: string) => fs.existsSync(path.join(cwd, p));
+      const appDir = has('app') ? 'app' : has('src/app') ? 'src/app' : undefined;
+      const pagesDir = has('pages') ? 'pages' : has('src/pages') ? 'src/pages' : undefined;
+      // Return rules that use the detected appDir/pagesDir
+      return {
+        schema:       { candidates: ['prisma/schema.prisma'] },
+        pages:        { candidates: appDir ? [appDir] : pagesDir ? [pagesDir] : ['app', 'src/app'] },
+        components:   { candidates: ['components', 'src/components'] },
+        apiRoutes:    { candidates: appDir ? [`${appDir}/api`] : pagesDir ? [`${pagesDir}/api`] : ['app/api', 'pages/api'] },
+        hooks:        { candidates: ['hooks', 'src/hooks'] },
+        types:        { candidates: ['types', 'src/types'] },
+      };
+    }
+
+    default:
+      return {};
+  }
+}
+
 function detectDirectories(
   cwd: string,
   framework: ProjectConfig['framework'],
 ): ProjectConfig['directories'] {
-  const has = (p: string) => fs.existsSync(path.join(cwd, p));
+  const rules = getDirectorySearchRules(framework, cwd);
+  const result: ProjectConfig['directories'] = {};
 
-  if (framework === 'nextjs') {
-    const appDir = has('app') ? 'app' : has('src/app') ? 'src/app' : undefined;
-    const pagesDir = has('pages') ? 'pages' : has('src/pages') ? 'src/pages' : undefined;
-    return {
-      schema: 'prisma/schema.prisma',
-      pages: appDir ?? pagesDir,
-      components: has('components') ? 'components' : has('src/components') ? 'src/components' : undefined,
-      apiRoutes: appDir ? `${appDir}/api` : pagesDir ? `${pagesDir}/api` : undefined,
-      hooks: has('hooks') ? 'hooks' : has('src/hooks') ? 'src/hooks' : undefined,
-      types: has('types') ? 'types' : has('src/types') ? 'src/types' : undefined,
-    };
+  for (const [key, rule] of Object.entries(rules)) {
+    (result as Record<string, string | undefined>)[key] = findFirstExistingDir(cwd, rule.candidates);
   }
 
-  if (framework === 'express-vue') {
-    // Try direct paths first, then workspace-nested paths; prefer directories with content
-    const findDir = (direct: string, nested: string) => {
-      const directAbs = path.join(cwd, direct);
-      const nestedAbs = path.join(cwd, nested);
-      const directExists = fs.existsSync(directAbs) && fs.readdirSync(directAbs).length > 0;
-      const nestedExists = fs.existsSync(nestedAbs) && fs.readdirSync(nestedAbs).length > 0;
-      if (nestedExists) return nested;
-      if (directExists) return direct;
-      return nested; // default to nested path even if empty
-    };
-
-    return {
-      schema: findDir('backend/src/models', 'smart-bottle-platform/backend/src/models'),
-      services: findDir('backend/src/services', 'smart-bottle-platform/backend/src/services'),
-      middleware: findDir('backend/src/middleware', 'smart-bottle-platform/backend/src/middleware'),
-      apiRoutes: findDir('backend/src/routes', 'smart-bottle-platform/backend/src/routes'),
-      pages: findDir('frontend/src/views', 'smart-bottle-platform/frontend/src/views'),
-      components: findDir('frontend/src/components', 'smart-bottle-platform/frontend/src/components'),
-      hooks: findDir('frontend/src/hooks', 'smart-bottle-platform/frontend/src/hooks'),
-      types: findDir('frontend/src/types', 'smart-bottle-platform/frontend/src/types'),
-      router: findDir('frontend/src/router', 'smart-bottle-platform/frontend/src/router'),
-      stores: findDir('frontend/src/stores', 'smart-bottle-platform/frontend/src/stores'),
-    };
-  }
-
-  if (framework === 'express-react') {
-    return {
-      schema: 'prisma/schema.prisma',
-      pages: 'src/pages',
-      components: 'src/components',
-      apiRoutes: 'src/routes',
-      hooks: 'src/hooks',
-      types: 'src/types',
-    };
-  }
-
-  return {};
+  return result;
 }
 
 function mergeSubdirDeps(cwd: string, pkg: Record<string, unknown>): Record<string, string> {
@@ -119,11 +134,14 @@ export function detectProject(cwd: string): ProjectConfig {
   const subDeps = mergeSubdirDeps(cwd, pkg);
   const allDeps: Record<string, string> = { ...rootDeps, ...subDeps };
 
+  const framework = detectFramework(allDeps);
+
   return {
-    framework: detectFramework(allDeps),
+    framework,
     orm: detectOrm(allDeps),
     typescript: fs.existsSync(path.join(cwd, 'tsconfig.json')),
-    directories: detectDirectories(cwd, detectFramework(allDeps)),
+    directories: detectDirectories(cwd, framework),
     packageManager: detectPackageManager(cwd),
+    uiLibrary: detectUiLibrary(allDeps),
   };
 }

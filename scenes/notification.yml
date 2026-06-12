@@ -6,6 +6,9 @@ stackCompatibility:
   - express-react
   - express-vue
 
+dependsOn:
+  - email-auth
+
 dependencies:
   - package: zod
     version: "^3.23.8"
@@ -18,6 +21,7 @@ entities:
       type: String
       title: String
       content: String?
+      link: String?
       relatedType: String?
       relatedId: String?
       isRead: Boolean @default(false)
@@ -41,7 +45,7 @@ api:
     path: /api/notifications/:id
     description: Delete a notification
   - method: DELETE
-    path: /api/notifications/clear-all
+    path: /api/notifications/all
     description: Delete all notifications for current user
 
 frontend:

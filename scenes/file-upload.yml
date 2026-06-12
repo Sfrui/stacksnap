@@ -2,7 +2,6 @@ name: file-upload
 description: File upload and management with drag-and-drop, preview, and file list
 version: 1.0.0
 stackCompatibility:
-  - nextjs
   - express-react
   - express-vue
 
@@ -13,7 +12,7 @@ dependencies:
     version: "^3.23.8"
 
 entities:
-  - name: File
+  - name: FileRecord
     fields:
       id: String @id @default(uuid())
       originalName: String

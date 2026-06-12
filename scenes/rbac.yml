@@ -6,6 +6,9 @@ stackCompatibility:
   - express-react
   - express-vue
 
+dependsOn:
+  - email-auth
+
 dependencies:
   - package: zod
     version: "^3.23.8"
@@ -35,6 +38,8 @@ entities:
       id: String @id @default(uuid())
       roleId: String
       permissionId: String
+      createdAt: DateTime @default(now())
+    # @@unique([roleId, permissionId])
 
   - name: UserRole
     fields:
@@ -42,6 +47,7 @@ entities:
       userId: String
       roleId: String
       createdAt: DateTime @default(now())
+    # @@unique([userId, roleId])
 
 api:
   - method: GET

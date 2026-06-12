@@ -23,6 +23,7 @@ entities:
       email: String @unique
       password: String
       name: String?
+      avatar: String?
       emailVerified: Boolean @default(false)
       createdAt: DateTime @default(now())
       updatedAt: DateTime @updatedAt
@@ -32,6 +33,7 @@ entities:
       id: String @id @default(uuid())
       token: String @unique
       userId: String
+      purpose: String
       expires: DateTime
       createdAt: DateTime @default(now())
 
@@ -57,6 +59,12 @@ api:
   - method: GET
     path: /api/auth/me
     description: Get current authenticated user profile
+  - method: POST
+    path: /api/auth/change-password
+    description: Change password for authenticated user (requires current password)
+  - method: POST
+    path: /api/auth/refresh-token
+    description: Refresh JWT token for authenticated user
 
 frontend:
   pages:

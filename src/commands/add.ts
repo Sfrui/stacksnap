@@ -9,20 +9,21 @@ import { generateSceneCode } from '../core/code-generator';
 import { injectFiles } from '../core/injector/file-injector';
 import { installDependencies } from '../core/injector/dependency-installer';
 import { isGitRepo, setupGitBranch, commitChanges, rollback } from '../utils/git';
+import { getAdapterForConfig } from '../adapters/registry';
 import { ProjectConfig, SceneDefinition, GeneratedFile } from '../types';
 
 function categorizeFile(filePath: string): string {
   const p = filePath.replace(/\\/g, '/');
-  if (p.includes('/models/') || p.includes('/models\\')) return 'Backend Models';
-  if (p.includes('/services/') || p.includes('/services\\')) return 'Backend Services';
-  if (p.includes('/routes/') || p.includes('/routes\\')) return 'Backend Routes';
-  if (p.includes('/middleware/') || p.includes('/middleware\\')) return 'Backend Middleware';
-  if (p.includes('/api/') || p.includes('/api\\')) return 'Frontend API';
-  if (p.includes('/views/') || p.includes('/views\\')) return 'Frontend Pages';
-  if (p.includes('/components/') || p.includes('/components\\')) return 'Frontend Components';
-  if (p.includes('/hooks/') || p.includes('/hooks\\')) return 'Frontend Hooks';
-  if (p.includes('/router/') || p.includes('/router\\')) return 'Frontend Router';
-  if (p.includes('/stores/') || p.includes('/stores\\')) return 'Frontend Stores';
+  if (p.includes('/models/')) return 'Backend Models';
+  if (p.includes('/services/')) return 'Backend Services';
+  if (p.includes('/routes/')) return 'Backend Routes';
+  if (p.includes('/middleware/')) return 'Backend Middleware';
+  if (p.includes('/api/')) return 'Frontend API';
+  if (p.includes('/views/')) return 'Frontend Pages';
+  if (p.includes('/components/')) return 'Frontend Components';
+  if (p.includes('/hooks/')) return 'Frontend Hooks';
+  if (p.includes('/router/')) return 'Frontend Router';
+  if (p.includes('/stores/')) return 'Frontend Stores';
   return 'Other';
 }
 
@@ -105,6 +106,49 @@ export async function addCommand(preselectedScene?: string): Promise<void> {
     scene = scenes.find((s) => s.name === selected)!;
     console.log(chalk.green(`\nSelected scene: ${scene.name}`));
 
+    // --- Step 2.5: Dependency check ---
+    if (scene.dependsOn && scene.dependsOn.length > 0) {
+      const installedScenes: string[] = [];
+      for (const dep of scene.dependsOn) {
+        // Check if the dependency scene has been installed by looking for its markers
+        const depScene = scenes.find(s => s.name === dep);
+        if (depScene) {
+          // A simple heuristic: check if any service file contains the dependency scene name marker
+          const servicesDir = config.directories.services;
+          if (servicesDir) {
+            const absDir = path.join(cwd, servicesDir);
+            if (fs.existsSync(absDir)) {
+              const files = fs.readdirSync(absDir).filter(f => f.endsWith('.js') || f.endsWith('.ts'));
+              for (const f of files) {
+                const content = fs.readFileSync(path.join(absDir, f), 'utf-8');
+                if (content.includes(`// [stacksnap] ${dep}`) || content.includes(`@stacksnap added`)) {
+                  installedScenes.push(dep);
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+      const missing = scene.dependsOn.filter(d => !installedScenes.includes(d));
+      if (missing.length > 0) {
+        console.log(chalk.yellow(`\nWarning: This scene depends on: ${missing.join(', ')}.`));
+        console.log(chalk.yellow('Install them first for best results.'));
+        if (!preselectedScene) {
+          const { proceed } = await inquirer.prompt([{
+            type: 'confirm',
+            name: 'proceed',
+            message: 'Continue anyway?',
+            default: true,
+          }]);
+          if (!proceed) {
+            console.log(chalk.yellow('Aborted.'));
+            return;
+          }
+        }
+      }
+    }
+
     // --- Step 3: Git branch ---
     const hasGit = await isGitRepo(cwd);
     if (hasGit) {
@@ -150,8 +194,13 @@ export async function addCommand(preselectedScene?: string): Promise<void> {
     }
 
     // --- Step 6: Inject files ---
+    const adapter = getAdapterForConfig(config);
+    const registrationFiles = [
+      ...adapter.backend.registrationFiles(),
+      ...(adapter.frontend.routerFile() ? [adapter.frontend.routerFile()!] : []),
+    ];
     const injectSpinner = ora('Injecting files...').start();
-    const result = injectFiles(files, cwd);
+    const result = injectFiles(files, cwd, { registrationFiles });
     injectSpinner.succeed('Files injected');
 
     if (result.created.length > 0) console.log(chalk.green(`  Created: ${result.created.join(', ')}`));

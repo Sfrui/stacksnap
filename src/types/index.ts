@@ -15,6 +15,8 @@ export interface ProjectConfig {
     stores?: string;
   };
   packageManager: 'npm' | 'yarn' | 'pnpm';
+  locale?: string;
+  uiLibrary?: string;
 }
 
 export interface SceneDependency {
@@ -28,7 +30,7 @@ export interface SceneEntity {
 }
 
 export interface SceneApiRoute {
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
   path: string;
   description: string;
 }
@@ -60,6 +62,7 @@ export interface SceneDefinition {
   description: string;
   version: string;
   stackCompatibility: string[];
+  dependsOn?: string[];
   dependencies: SceneDependency[];
   entities: SceneEntity[];
   api: SceneApiRoute[];

@@ -21,6 +21,8 @@ export function initCommand(): void {
   console.log(`  Framework:    ${chalk.cyan(config.framework)}`);
   console.log(`  ORM:          ${chalk.cyan(config.orm)}`);
   console.log(`  TypeScript:   ${chalk.cyan(String(config.typescript))}`);
+  console.log(`  UI Library:   ${chalk.cyan(config.uiLibrary || 'auto')}`);
   console.log(`  Pkg Manager:  ${chalk.cyan(config.packageManager)}`);
   console.log(`\nConfig written to: ${chalk.dim(outPath)}`);
+  console.log(chalk.dim('  Edit .stacksnap.json to override detected directories or set locale.'));
 }

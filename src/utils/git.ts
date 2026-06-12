@@ -16,6 +16,10 @@ export async function isGitRepo(cwd: string): Promise<boolean> {
 export async function setupGitBranch(cwd: string, branchName: string): Promise<boolean> {
   try {
     const g = git(cwd);
+    const branches = await g.branchLocal();
+    if (branches.all.includes(branchName)) {
+      await g.deleteLocalBranch(branchName, true);
+    }
     await g.checkoutLocalBranch(branchName);
     return true;
   } catch (err) {

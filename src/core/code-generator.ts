@@ -2,17 +2,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import OpenAI from 'openai';
 import { SceneDefinition, ProjectConfig, GeneratedFile } from '../types';
-import {
-  buildSchemaPrompt,
-  buildServicePrompt,
-  buildRoutePrompt,
-  buildApiModulePrompt,
-  buildPagePrompt,
-  buildHookPrompt,
-  buildComponentPrompt,
-  buildModelIndexPrompt,
-  buildRouterPrompt,
-} from './prompt-factory';
+import { TechStackAdapter, BackendAdapter, FrontendAdapter, LocaleConfig } from '../adapters/types';
+import { getAdapterForConfig } from '../adapters/registry';
+import { getLocaleConfig } from '../adapters/locale';
 
 let _callAI: ((prompt: string) => Promise<string>) | null = null;
 
@@ -35,12 +27,26 @@ export async function callAI(prompt: string): Promise<string> {
     temperature: 0.2,
     messages: [{ role: 'user', content: prompt }],
   });
-  return response.choices[0].message.content ?? '';
+  const content = response.choices?.[0]?.message?.content;
+  if (content == null) {
+    throw new Error('AI returned empty response. Check your API key and model configuration.');
+  }
+  return stripMarkdownFences(content);
+}
+
+/** Strip markdown code fences (```js ... ```) that AI models sometimes wrap output in */
+export function stripMarkdownFences(output: string): string {
+  const trimmed = output.trim();
+  const fenceMatch = trimmed.match(/^```(?:\w+)?\s*\n([\s\S]*?)\n```\s*$/);
+  if (fenceMatch) {
+    return fenceMatch[1].trim();
+  }
+  return output;
 }
 
 // --- Generic multi-file parser ---
 
-function parseMultiFileOutput(aiOutput: string, targetDir: string, cwd?: string): GeneratedFile[] {
+export function parseMultiFileOutput(aiOutput: string, targetDir: string, cwd?: string, expectedExtension?: string): GeneratedFile[] {
   const files: GeneratedFile[] = [];
   const fileRegex = /\/\/\s*FILE:\s*(\S+)\s*\n([\s\S]*?)(?=\/\/\s*FILE:|$)/g;
   let match;
@@ -52,9 +58,14 @@ function parseMultiFileOutput(aiOutput: string, targetDir: string, cwd?: string)
     // Skip special registration blocks — handled separately
     if (fileName.startsWith('__')) continue;
 
-    // Ensure correct extension for Vue pages
-    if (targetDir.includes('views') && !fileName.endsWith('.vue')) {
-      fileName = fileName.replace(/\.js$/, '') + '.vue';
+    // Normalize extension based on adapter expectation
+    if (expectedExtension) {
+      const currentExt = path.extname(fileName);
+      if (currentExt && currentExt !== expectedExtension) {
+        fileName = fileName.replace(currentExt, '') + expectedExtension;
+      } else if (!currentExt) {
+        fileName = fileName + expectedExtension;
+      }
     }
 
     const filePath = path.join(targetDir, fileName);
@@ -70,7 +81,7 @@ function parseMultiFileOutput(aiOutput: string, targetDir: string, cwd?: string)
   return files;
 }
 
-function parseSpecialBlock(aiOutput: string, blockName: string): string | null {
+export function parseSpecialBlock(aiOutput: string, blockName: string): string | null {
   const regex = new RegExp(`//\\s*FILE:\\s*${blockName}\\s*\\n([\\s\\S]*?)(?=//\\s*FILE:|$)`);
   const match = regex.exec(aiOutput);
   return match ? match[1].trim() : null;
@@ -82,7 +93,7 @@ function readFirstFile(dirPath: string, cwd: string): string {
   const absDir = path.join(cwd, dirPath);
   if (!fs.existsSync(absDir)) return '';
   const entries = fs.readdirSync(absDir).filter(f =>
-    f.endsWith('.js') || f.endsWith('.ts') || f.endsWith('.vue'),
+    f.endsWith('.js') || f.endsWith('.ts') || f.endsWith('.vue') || f.endsWith('.tsx'),
   );
   if (entries.length === 0) return '';
   // Pick the largest file as it likely has the most patterns
@@ -99,7 +110,7 @@ function readAllFiles(dirPath: string, cwd: string): string {
   const absDir = path.join(cwd, dirPath);
   if (!fs.existsSync(absDir)) return '';
   const entries = fs.readdirSync(absDir).filter(f =>
-    f.endsWith('.js') || f.endsWith('.ts'),
+    f.endsWith('.js') || f.endsWith('.ts') || f.endsWith('.vue') || f.endsWith('.tsx'),
   );
   return entries.map(f => fs.readFileSync(path.join(absDir, f), 'utf-8')).join('\n');
 }
@@ -114,7 +125,7 @@ function readStacksnapCode(dirPath: string, cwd: string): string {
   const absDir = path.join(cwd, dirPath);
   if (!fs.existsSync(absDir)) return '';
   const entries = fs.readdirSync(absDir).filter(f =>
-    f.endsWith('.js') || f.endsWith('.ts') || f.endsWith('.vue'),
+    f.endsWith('.js') || f.endsWith('.ts') || f.endsWith('.vue') || f.endsWith('.tsx'),
   );
   const blocks: string[] = [];
   for (const f of entries) {
@@ -128,12 +139,14 @@ function readStacksnapCode(dirPath: string, cwd: string): string {
   return blocks.join('\n\n');
 }
 
-// --- Schema generation (existing logic, refactored) ---
+// --- Schema generation ---
 
 async function generateSchema(
   scene: SceneDefinition,
   config: ProjectConfig,
   cwd: string,
+  backend: BackendAdapter,
+  locale: LocaleConfig,
 ): Promise<{ files: GeneratedFile[]; generatedModelCode: string }> {
   if (scene.entities.length === 0 || !config.directories.schema) {
     return { files: [], generatedModelCode: '' };
@@ -151,12 +164,12 @@ async function generateSchema(
     existingSchema = fs.existsSync(schemaAbsPath) ? fs.readFileSync(schemaAbsPath, 'utf-8') : '';
   }
 
-  const prompt = buildSchemaPrompt(scene, config, existingSchema);
+  const prompt = backend.buildSchemaPrompt(scene, config, existingSchema, locale);
   if (prompt === null) return { files: [], generatedModelCode: '' };
 
   const aiOutput = await callAI(prompt);
 
-  if (config.orm === 'sequelize' && isDirectory) {
+  if ((config.orm === 'sequelize' || config.orm === 'drizzle') && isDirectory) {
     const files = parseMultiFileOutput(aiOutput, schemaRelPath, cwd);
     return { files, generatedModelCode: aiOutput };
   } else {
@@ -176,6 +189,8 @@ async function generateServices(
   config: ProjectConfig,
   cwd: string,
   modelCode: string,
+  backend: BackendAdapter,
+  locale: LocaleConfig,
 ): Promise<GeneratedFile[]> {
   if (!scene.api || scene.api.length === 0 || !config.directories.services) return [];
 
@@ -184,7 +199,7 @@ async function generateServices(
   const contextRef = existingStacksnap
     ? `${refService}\n\n--- EXISTING STACKSNAP CODE (do not duplicate) ---\n${existingStacksnap}\n--- END EXISTING STACKSNAP ---`
     : refService;
-  const prompt = buildServicePrompt(scene, config, modelCode, contextRef);
+  const prompt = backend.buildServicePrompt(scene, config, modelCode, contextRef, locale);
   if (!prompt) return [];
 
   const aiOutput = await callAI(prompt);
@@ -198,6 +213,8 @@ async function generateRoutes(
   config: ProjectConfig,
   cwd: string,
   serviceCode: string,
+  backend: BackendAdapter,
+  locale: LocaleConfig,
 ): Promise<{ files: GeneratedFile[]; routeCode: string }> {
   if (!scene.api || scene.api.length === 0 || !config.directories.apiRoutes) {
     return { files: [], routeCode: '' };
@@ -213,7 +230,7 @@ async function generateRoutes(
     cwd,
   );
 
-  const prompt = buildRoutePrompt(scene, config, serviceCode, contextRefRoute, routeIndexContent);
+  const prompt = backend.buildRoutePrompt(scene, config, serviceCode, contextRefRoute, routeIndexContent, locale);
   if (!prompt) return { files: [], routeCode: '' };
 
   const aiOutput = await callAI(prompt);
@@ -238,16 +255,12 @@ async function generateApiModules(
   scene: SceneDefinition,
   config: ProjectConfig,
   cwd: string,
+  frontend: FrontendAdapter,
+  locale: LocaleConfig,
 ): Promise<GeneratedFile[]> {
-  if (!scene.api || scene.api.length === 0) {
-    // Derive api directory from pages/components directory
-    const apiDir = config.directories.pages
-      ? path.dirname(config.directories.pages) + '/api'
-      : undefined;
-    if (!apiDir) return [];
-  }
+  if (!scene.api || scene.api.length === 0) return [];
 
-  // Frontend api directory is typically sibling to views
+  // Frontend api directory is typically sibling to views/pages
   const apiDir = config.directories.pages
     ? path.join(path.dirname(config.directories.pages), 'api')
     : 'frontend/src/api';
@@ -257,7 +270,7 @@ async function generateApiModules(
   const contextRefApi = existingStacksnapApi
     ? `${refApiModule}\n\n--- EXISTING STACKSNAP CODE (do not duplicate functions) ---\n${existingStacksnapApi}\n--- END EXISTING STACKSNAP ---`
     : refApiModule;
-  const prompt = buildApiModulePrompt(scene, config, contextRefApi);
+  const prompt = frontend.buildApiModulePrompt(scene, config, contextRefApi, locale);
   if (!prompt) return [];
 
   const aiOutput = await callAI(prompt);
@@ -271,16 +284,18 @@ async function generatePages(
   config: ProjectConfig,
   cwd: string,
   apiFunctions: string,
+  adapter: TechStackAdapter,
+  locale: LocaleConfig,
 ): Promise<GeneratedFile[]> {
   if (!scene.frontend.pages || scene.frontend.pages.length === 0 || !config.directories.pages) return [];
 
   const refPage = readFirstFile(config.directories.pages, cwd);
-  const prompt = buildPagePrompt(scene, config, refPage, apiFunctions);
+  const prompt = adapter.frontend.buildPagePrompt(scene, config, refPage, apiFunctions, locale);
   if (!prompt) return [];
 
   const aiOutput = await callAI(prompt);
 
-  // Pages go into subdirectories: views/auth/LoginView.vue, views/profile/ProfileView.vue
+  const expectedExt = adapter.fileExtension('page');
   const files: GeneratedFile[] = [];
   const fileRegex = /\/\/\s*FILE:\s*(\S+)\s*\n([\s\S]*?)(?=\/\/\s*FILE:|$)/g;
   let match;
@@ -289,7 +304,7 @@ async function generatePages(
     const fileName = match[1].trim();
     const content = match[2].trim();
 
-    // Find the matching scene page to determine subdirectory
+    // Use the integration adapter to resolve the page file path
     const scenePage = scene.frontend.pages.find(p => {
       const parts = p.path.split('/');
       const expectedName = parts[parts.length - 1];
@@ -298,15 +313,12 @@ async function generatePages(
 
     let filePath: string;
     if (scenePage) {
-      const dirName = scenePage.path; // e.g., 'auth/login' or 'profile'
-      const nameParts = dirName.split('/');
-      const viewName = nameParts[nameParts.length - 1]
-        .split('-')
-        .map(s => s.charAt(0).toUpperCase() + s.slice(1))
-        .join('') + 'View.vue';
-      filePath = path.join(config.directories.pages, ...nameParts.slice(0, -1), viewName);
+      filePath = adapter.integration.resolvePagePath(config, scenePage.path);
     } else {
-      filePath = path.join(config.directories.pages, fileName);
+      // Fallback: use the adapter's naming convention
+      const baseName = fileName.replace(/\.\w+$/, '');
+      const naming = adapter.frontend.pageFileNaming(baseName);
+      filePath = path.join(config.directories.pages, naming);
     }
 
     files.push({ action: 'create', filePath, content });
@@ -322,11 +334,13 @@ async function generateHooks(
   config: ProjectConfig,
   cwd: string,
   apiFunctions: string,
+  frontend: FrontendAdapter,
+  locale: LocaleConfig,
 ): Promise<GeneratedFile[]> {
   if (!scene.frontend.hooks || scene.frontend.hooks.length === 0 || !config.directories.hooks) return [];
 
   const refHook = readFirstFile(config.directories.hooks, cwd);
-  const prompt = buildHookPrompt(scene, config, refHook, apiFunctions);
+  const prompt = frontend.buildHookPrompt(scene, config, refHook, apiFunctions, locale);
   if (!prompt) return [];
 
   const aiOutput = await callAI(prompt);
@@ -340,15 +354,18 @@ async function generateComponents(
   config: ProjectConfig,
   cwd: string,
   apiFunctions: string,
+  adapter: TechStackAdapter,
+  locale: LocaleConfig,
 ): Promise<GeneratedFile[]> {
   if (!scene.frontend.components || scene.frontend.components.length === 0 || !config.directories.components) return [];
 
   const refComponent = readFirstFile(config.directories.components, cwd);
-  const prompt = buildComponentPrompt(scene, config, refComponent, apiFunctions);
+  const prompt = adapter.frontend.buildComponentPrompt(scene, config, refComponent, apiFunctions, locale);
   if (!prompt) return [];
 
   const aiOutput = await callAI(prompt);
-  return parseMultiFileOutput(aiOutput, config.directories.components, cwd);
+  const expectedExt = adapter.fileExtension('component');
+  return parseMultiFileOutput(aiOutput, config.directories.components, cwd, expectedExt);
 }
 
 // --- Model index update ---
@@ -357,15 +374,20 @@ async function generateModelIndexUpdate(
   scene: SceneDefinition,
   config: ProjectConfig,
   cwd: string,
+  backend: BackendAdapter,
+  locale: LocaleConfig,
   modelNames: string[],
 ): Promise<GeneratedFile | null> {
   if (modelNames.length === 0 || !config.directories.schema) return null;
 
-  const indexFile = path.join(cwd, config.directories.schema, 'index.js');
+  const indexRelPath = backend.modelIndexFile();
+  if (!indexRelPath) return null;
+
+  const indexFile = path.join(cwd, config.directories.schema, indexRelPath);
   if (!fs.existsSync(indexFile)) return null;
 
   const existingIndex = fs.readFileSync(indexFile, 'utf-8');
-  const prompt = buildModelIndexPrompt(scene, config, modelNames, existingIndex);
+  const prompt = backend.buildModelIndexPrompt(scene, config, modelNames, existingIndex, locale);
   if (!prompt) return null;
 
   const aiOutput = await callAI(prompt);
@@ -373,9 +395,28 @@ async function generateModelIndexUpdate(
 
   return {
     action: 'modify',
-    filePath: path.join(config.directories.schema, 'index.js'),
+    filePath: path.join(config.directories.schema, indexRelPath),
     content: block,
   };
+}
+
+// --- Type definitions generation ---
+
+async function generateTypes(
+  scene: SceneDefinition,
+  config: ProjectConfig,
+  cwd: string,
+  frontend: FrontendAdapter,
+  locale: LocaleConfig,
+): Promise<GeneratedFile[]> {
+  if (!scene.types || scene.types.length === 0 || !config.directories.types) return [];
+
+  const existingTypes = readAllFiles(config.directories.types, cwd);
+  const prompt = frontend.buildTypePrompt(scene, config, existingTypes, locale);
+  if (!prompt) return [];
+
+  const aiOutput = await callAI(prompt);
+  return parseMultiFileOutput(aiOutput, config.directories.types, cwd, '.ts');
 }
 
 // --- Router registration ---
@@ -384,14 +425,19 @@ async function generateRouterRegistration(
   scene: SceneDefinition,
   config: ProjectConfig,
   cwd: string,
+  frontend: FrontendAdapter,
+  locale: LocaleConfig,
 ): Promise<GeneratedFile | null> {
   if (!scene.frontend.pages || scene.frontend.pages.length === 0 || !config.directories.router) return null;
 
-  const routerFile = path.join(config.directories.router, 'index.js');
+  const routerRelPath = frontend.routerFile();
+  if (!routerRelPath) return null;
+
+  const routerFile = path.join(cwd, config.directories.router, path.basename(routerRelPath));
   if (!fs.existsSync(routerFile)) return null;
 
   const existingRouter = fs.readFileSync(routerFile, 'utf-8');
-  const prompt = buildRouterPrompt(scene, config, existingRouter);
+  const prompt = frontend.buildRouterPrompt(scene, config, existingRouter, locale);
   if (!prompt) return null;
 
   const aiOutput = await callAI(prompt);
@@ -399,7 +445,7 @@ async function generateRouterRegistration(
 
   return {
     action: 'modify',
-    filePath: path.join(config.directories.router, 'index.js'),
+    filePath: path.join(config.directories.router, routerRelPath),
     content: block,
   };
 }
@@ -412,59 +458,67 @@ export async function generateSceneCode(
   cwd: string,
   onProgress?: (step: string) => void,
 ): Promise<GeneratedFile[]> {
+  const adapter = getAdapterForConfig(config);
+  const locale = getLocaleConfig(config);
+  const { backend, frontend } = adapter;
   const allFiles: GeneratedFile[] = [];
 
   // Batch 1: Schema models
   onProgress?.('Generating backend models...');
-  const { files: schemaFiles, generatedModelCode } = await generateSchema(scene, config, cwd);
+  const { files: schemaFiles, generatedModelCode } = await generateSchema(scene, config, cwd, backend, locale);
   allFiles.push(...schemaFiles);
 
-  // Batch 2: Model index registration
-  if (schemaFiles.length > 0) {
+  // Batch 2: Model index registration (only for multi-file ORMs)
+  if (schemaFiles.length > 0 && (config.orm === 'sequelize' || config.orm === 'drizzle')) {
     const newModelNames = schemaFiles
       .map(f => path.basename(f.filePath, path.extname(f.filePath)))
       .filter(n => n !== 'index');
-    const modelIndexUpdate = await generateModelIndexUpdate(scene, config, cwd, newModelNames);
+    const modelIndexUpdate = await generateModelIndexUpdate(scene, config, cwd, backend, locale, newModelNames);
     if (modelIndexUpdate) allFiles.push(modelIndexUpdate);
   }
 
   // Batch 3: Backend services
   onProgress?.('Generating backend services...');
-  const serviceFiles = await generateServices(scene, config, cwd, generatedModelCode);
+  const serviceFiles = await generateServices(scene, config, cwd, generatedModelCode, backend, locale);
   allFiles.push(...serviceFiles);
 
   // Batch 4: Backend routes
   onProgress?.('Generating API routes...');
   const serviceCode = serviceFiles.map(f => f.content).join('\n');
-  const { files: routeFiles } = await generateRoutes(scene, config, cwd, serviceCode);
+  const { files: routeFiles } = await generateRoutes(scene, config, cwd, serviceCode, backend, locale);
   allFiles.push(...routeFiles);
 
   // Batch 5: Frontend API modules
   onProgress?.('Generating frontend API modules...');
-  const apiModuleFiles = await generateApiModules(scene, config, cwd);
+  const apiModuleFiles = await generateApiModules(scene, config, cwd, frontend, locale);
   allFiles.push(...apiModuleFiles);
 
   // Build API function list for downstream prompts
   const apiFunctions = apiModuleFiles.map(f => f.content).join('\n');
 
-  // Batch 6: Frontend pages
+  // Batch 6: Type definitions
+  onProgress?.('Generating type definitions...');
+  const typeFiles = await generateTypes(scene, config, cwd, frontend, locale);
+  allFiles.push(...typeFiles);
+
+  // Batch 7: Frontend pages
   onProgress?.('Generating frontend pages...');
-  const pageFiles = await generatePages(scene, config, cwd, apiFunctions || serviceCode);
+  const pageFiles = await generatePages(scene, config, cwd, apiFunctions || serviceCode, adapter, locale);
   allFiles.push(...pageFiles);
 
-  // Batch 7: Frontend hooks
+  // Batch 8: Frontend hooks
   onProgress?.('Generating hooks...');
-  const hookFiles = await generateHooks(scene, config, cwd, apiFunctions || serviceCode);
+  const hookFiles = await generateHooks(scene, config, cwd, apiFunctions || serviceCode, frontend, locale);
   allFiles.push(...hookFiles);
 
-  // Batch 8: Frontend components
+  // Batch 9: Frontend components
   onProgress?.('Generating components...');
-  const componentFiles = await generateComponents(scene, config, cwd, apiFunctions || serviceCode);
+  const componentFiles = await generateComponents(scene, config, cwd, apiFunctions || serviceCode, adapter, locale);
   allFiles.push(...componentFiles);
 
-  // Batch 9: Router registration
+  // Batch 10: Router registration
   if (pageFiles.length > 0 || componentFiles.length > 0) {
-    const routerUpdate = await generateRouterRegistration(scene, config, cwd);
+    const routerUpdate = await generateRouterRegistration(scene, config, cwd, frontend, locale);
     if (routerUpdate) allFiles.push(routerUpdate);
   }
 

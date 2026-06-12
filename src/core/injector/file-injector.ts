@@ -10,7 +10,7 @@ export interface InjectionResult {
 }
 
 // Extract function names from service file: "const fnName = async" or "const fnName ="
-function extractFunctionNames(content: string): Set<string> {
+export function extractFunctionNames(content: string): Set<string> {
   const names = new Set<string>();
   const regex = /(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\(/g;
   let match;
@@ -21,7 +21,7 @@ function extractFunctionNames(content: string): Set<string> {
 }
 
 // Extract route paths from route file: "router.get('/path'" or "router.post('/path'"
-function extractRoutePaths(content: string): Set<string> {
+export function extractRoutePaths(content: string): Set<string> {
   const paths = new Set<string>();
   const regex = /router\.(get|post|put|delete|patch)\s*\(\s*['"`]([^'"`]+)['"`]/g;
   let match;
@@ -32,7 +32,7 @@ function extractRoutePaths(content: string): Set<string> {
 }
 
 // Split code block into individual function definitions
-function splitIntoFunctions(content: string): Map<string, string> {
+export function splitIntoFunctions(content: string): Map<string, string> {
   const functions = new Map<string, string>();
   const lines = content.split('\n');
   let currentName = '';
@@ -57,7 +57,7 @@ function splitIntoFunctions(content: string): Map<string, string> {
 }
 
 // Split route code into individual route definitions
-function splitIntoRoutes(content: string): Map<string, string> {
+export function splitIntoRoutes(content: string): Map<string, string> {
   const routes = new Map<string, string>();
   const lines = content.split('\n');
   let currentKey = '';
@@ -88,7 +88,7 @@ function splitIntoRoutes(content: string): Map<string, string> {
 }
 
 // Remove duplicate functions from new content that already exist in the file
-function deduplicateContent(existing: string, newContent: string, filePath: string): string | null {
+export function deduplicateContent(existing: string, newContent: string, filePath: string): string | null {
   const isRouteFile = filePath.includes('/routes/') || filePath.includes('\\routes\\');
 
   if (isRouteFile) {
@@ -202,20 +202,30 @@ function injectIntoFile(
 
 function isRouteIndex(filePath: string): boolean {
   const normalized = filePath.replace(/\\/g, '/');
-  return normalized.endsWith('routes/index.js');
+  return normalized.endsWith('routes/index.js') || normalized.endsWith('routes/index.ts');
 }
 
 function isModelIndex(filePath: string): boolean {
   const normalized = filePath.replace(/\\/g, '/');
-  return normalized.endsWith('models/index.js');
+  return normalized.endsWith('models/index.js') || normalized.endsWith('models/index.ts');
 }
 
 function isRouterIndex(filePath: string): boolean {
   const normalized = filePath.replace(/\\/g, '/');
-  return normalized.endsWith('router/index.js');
+  return normalized.endsWith('router/index.js') || normalized.endsWith('router/index.tsx');
 }
 
-export function injectFiles(files: GeneratedFile[], cwd: string): InjectionResult {
+function isAdapterRegistrationFile(filePath: string, registrationFiles: string[]): boolean {
+  const normalized = filePath.replace(/\\/g, '/');
+  return registrationFiles.some(f => normalized.endsWith(f));
+}
+
+export interface InjectionOptions {
+  /** File paths that should be treated as registration/index files for smart injection */
+  registrationFiles?: string[];
+}
+
+export function injectFiles(files: GeneratedFile[], cwd: string, options?: InjectionOptions): InjectionResult {
   const result: InjectionResult = { created: [], modified: [], skipped: [] };
 
   for (const file of files) {
@@ -256,8 +266,8 @@ export function injectFiles(files: GeneratedFile[], cwd: string): InjectionResul
           afterLast: /require\('\.\/\w+'\);?$/,
           beforeLine: /module\.exports/,
         });
-      } else if (isRouterIndex(file.filePath)) {
-        // Smart injection for router/index.js
+      } else if (isRouterIndex(file.filePath) || isAdapterRegistrationFile(file.filePath, options?.registrationFiles || [])) {
+        // Smart injection for router/index.js or adapter-specified registration files
         newContent = injectIntoFile(existing, file.content, {
           afterLast: /path:\s*['"]/,
           beforeLine: /^\s*\]\s*$/m,

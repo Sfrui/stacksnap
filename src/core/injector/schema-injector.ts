@@ -23,7 +23,7 @@ export function injectPrismaModels(existingSchema: string, newModelsRaw: string)
   return before + '\n\n' + block + '\n' + after;
 }
 
-function extractModelBlocks(raw: string): string[] {
+export function extractModelBlocks(raw: string): string[] {
   const regex = /model\s+\w+\s*\{[\s\S]*?\}/g;
   const matches = raw.match(regex);
   if (matches && matches.length > 0) {

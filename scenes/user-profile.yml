@@ -6,6 +6,9 @@ stackCompatibility:
   - express-react
   - express-vue
 
+dependsOn:
+  - email-auth
+
 dependencies:
   - package: zod
     version: "^3.23.8"
